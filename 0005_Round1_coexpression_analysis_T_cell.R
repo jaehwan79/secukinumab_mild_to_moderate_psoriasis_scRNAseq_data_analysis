@@ -1,57 +1,3 @@
-#load library ####
-#instRound0.packages('Seurat')
-library(Seurat)
-library(RNAransform)
-library(dplyr)
-library(ggplot2)
-#source("http://bioconductor.org/biocLite.R")
-#biocLite("GEOquery")
-library(GEOquery)
-#source("https://bioconductor.org/biocLite.R")
-#biocLite("DropletUtils")
-library(DropletUtils)
-#instRound0.packages("devtools")
-library(devtools)
-#sourceters
-#Start ####("https://raw.githubusercontent.com/farrellja/URD/master/URD-InstRound0.R")
-library(URD)
-#source("https://bioconductor.org/biocLite.R")
-#biocLite("edgeR")
-library(edgeR)
-library(reticulate)
-library(scales)
-library(forcats)
-library(cowplot)
-#install.packages("magrittr")
-library(magrittr)
-#install.packages('varhandle')
-library(varhandle)
-#install.packages("viridis")
-library(viridis)
-#install.packages('data.table')
-library(data.table) 
-library(googlesheets4)
-######################################################################################################3
-# Round1 combining clusters ####
-setwd("~/Dropbox/NSK_0937/NSK_0937_Experiment_Data/NSK_0937_scRNAseq/NSK_0937_scRNAseq_Data_processed/Psoriasis_posttx_05.01.2021")
-setwd("D:/Dropbox/NSK_0937/NSK_0937_Experiment_Data/NSK_0937_scRNAseq/NSK_0937_scRNAseq_Data_processed/Psoriasis_posttx_05.01.2021")
-
-dir.create("./coexpression_T_cells")
-setwd("./coexpression_T_cells")
-getwd()
-setwd("~/Dropbox/NSK_0937/NSK_0937_Experiment_Data/NSK_0937_scRNAseq/NSK_0937_scRNAseq_Data_processed/Psoriasis_posttx_05.01.2021/coexpression_T_cells")
-setwd("D:/Dropbox/NSK_0937/NSK_0937_Experiment_Data/NSK_0937_scRNAseq/NSK_0937_scRNAseq_Data_processed/Psoriasis_posttx_05.01.2021/coexpression_T_cells")
-
-list.files()
-rm(list= ls()[!(ls() %in% c('Round1'))])
-
-gene_subset  <- read_sheet("https://docs.google.com/spreadsheets/d/19nhrzGudrn8ihl4RASuyGlBe7JMHdWnnWKoZ0i2rZ4s/edit#gid=0")
-gene_subset <- as.matrix(unique(gene_subset[1]))
-
-#load("/Users/jkim05/Dropbox/NSK_0937/NSK_0937_Experiment_Data/NSK_0937_scRNAseq/NSK_0937_scRNAseq_Data_processed/Psoriasis_posttx_05.01.2021/combined_data/Round0_integrated_analyzed_01.31.2021.Rda")
-#load("/Users/jkim05/Dropbox/NSK_0937/NSK_0937_Experiment_Data/NSK_0937_scRNAseq/NSK_0937_scRNAseq_Data_processed/Psoriasis_posttx_05.01.2021/combined_data/Round0_integrated_analyzed_01.31.2021.Rda")
-#load("D:/Dropbox/NSK_0937/NSK_0937_Experiment_Data/NSK_0937_scRNAseq/NSK_0937_scRNAseq_Data_processed/Psoriasis_posttx_05.01.2021/combined_data/Round0_integrated_analyzed_02.09.2020.Rda")
-#load("D:/Dropbox/NSK_0937/NSK_0937_Experiment_Data/NSK_0937_scRNAseq/NSK_0937_scRNAseq_Data_processed/Psoriasis_posttx_05.01.2021/Round1/combined_data/Round1_integrated_analyzed_02.15.2020.Rda")
 ######################################################################################################
 ## T_cell IL17A vs IL17F co-expression ####
 Round2 <- Round1
@@ -104,7 +50,9 @@ list[,c(6,7,8)] <- list[,c(2,3,4)]
 colnames(list)[c(6,7,8)] <- paste(colnames(list[,c(2,3,4)]), "_Proportion", sep = "")
 list[,c(6,7,8)] <- list[,c(6,7,8)]/list[,5]*100
 
-
+#Control sample number 10
+#PosstTx sample number 4
+#Pretx sample number 11
 list[grep("Control", list$Cluster),c(2:4) ] <- list[grep("Control", list$Cluster),c(2:4) ]/10
 list[grep("PostTx", list$Cluster),c(2:4) ] <- list[grep("PostTx", list$Cluster),c(2:4) ]/4
 list[grep("PreTx", list$Cluster),c(2:4) ] <- list[grep("PreTx", list$Cluster),c(2:4) ]/11
@@ -238,7 +186,9 @@ list[,c(6,7,8)] <- list[,c(2,3,4)]
 colnames(list)[c(6,7,8)] <- paste(colnames(list[,c(2,3,4)]), "_Proportion", sep = "")
 list[,c(6,7,8)] <- list[,c(6,7,8)]/list[,5]*100
 
-
+#Control sample number 10
+#PosstTx sample number 4
+#Pretx sample number 11
 list[grep("Control", list$Cluster),c(2:4) ] <- list[grep("Control", list$Cluster),c(2:4) ]/10
 list[grep("PostTx", list$Cluster),c(2:4) ] <- list[grep("PostTx", list$Cluster),c(2:4) ]/4
 list[grep("PreTx", list$Cluster),c(2:4) ] <- list[grep("PreTx", list$Cluster),c(2:4) ]/11
@@ -421,11 +371,6 @@ list[is.na(list)] <- 0
 list[,c(6,7,8)] <- list[,c(2,3,4)]
 colnames(list)[c(6,7,8)] <- paste(colnames(list[,c(2,3,4)]), "_Proportion", sep = "")
 list[,c(6,7,8)] <- list[,c(6,7,8)]/list[,5]*100
-
-
-#list[grep("Control", list$Cluster),c(2:4) ] <- list[grep("Control", list$Cluster),c(2:4) ]/10
-#list[grep("PostTx", list$Cluster),c(2:4) ] <- list[grep("PostTx", list$Cluster),c(2:4) ]/4
-#list[grep("PreTx", list$Cluster),c(2:4) ] <- list[grep("PreTx", list$Cluster),c(2:4) ]/11
 
 write.csv(list, file="Cellnumbers_IL17A_IL17F_T_cell_CD161_CD8A.csv")
 
