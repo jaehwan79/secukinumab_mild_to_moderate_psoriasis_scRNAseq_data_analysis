@@ -1,44 +1,10 @@
 #load library ####
-#instRound0.packages('Seurat')
+# We used Seurat R package (version 4.0, https://satijalab.org/seurat/) 
+# installed in R (version 4.0.2, https://www.r-project.org/) for the downstream single-cell RNA sequencing data analy
 library(Seurat)
-library(RNAransform)
-library(dplyr)
-library(ggplot2)
-#source("http://bioconductor.org/biocLite.R")
-#biocLite("GEOquery")
-library(GEOquery)
-#source("https://bioconductor.org/biocLite.R")
-#biocLite("DropletUtils")
-library(DropletUtils)
-#instRound0.packages("devtools")
-library(devtools)
-#source("https://bioconductor.org/biocLite.R")
-#biocLite("edgeR")
-library(edgeR)
-library(reticulate)
-library(scales)
-library(forcats)
-library(cowplot)
-#install.packages("googlesheets4")
-library(googlesheets4)
-library(patchwork)
 ######################################################################################################3
-#Start ####
-setwd("~/Dropbox/10X_JKIM/aggregation/Psoriasis_posttx_05.01.2021")
-rm(list = ls())
-getwd()
-list.files()
-
-dir.create("./individual_data_analysis")
-setwd("~/Dropbox/10X_JKIM/aggregation/Psoriasis_posttx_05.01.2021/individual_data_analysis")
-
-#Read single cell data summary
-phenotype <- read_sheet("https://https://docs.google.com/spreadsheets/d/1_cVcmP7AniLrhIE9XWw-T-_BqQXIkG8wi7wl1Rb3kl4/edit#gid=0&fvid=109363522")
-phenotype <- phenotype[grep("Yes", phenotype$Third_project), ]
-
-phenotype <- phenotype[order(phenotype$Rcoding_Number_05.01.2021),]
-
-##Remove cluster *** barcodes and HighMT bc
+#Function to filter out cells with >25% mitochondrial genes 
+#and ubiquitously expressed ribosomal protein-coding (RPS and RPL) and MALAT noncoding RNA, miRNA, and snRNA genes 
 remove.genes<-function(sample, BCtoremove){
   sample <- sample[, !colnames(sample) %in% BCtoremove]
   ubiq <- c(rownames(sample[grep("^MT-", rownames(sample)), ]),
@@ -51,86 +17,61 @@ remove.genes<-function(sample, BCtoremove){
             rownames(sample[grep("^MALAT1", rownames(sample)), ]))
   sample <- sample[!rownames(sample) %in% ubiq, ]
   return(sample)
-}## Remove genes by Mitochondrial percentage
+}
 
 #####################################################################################
-### Load data  ####
-#rm(list = ls()[which("phenotype" != ls())])
-i=1
+# Individual single-cell data loading & quality control ####
+# Genes expressed in <3 cells, and cells with <100 or > 5,000 genes, 
+# and a mitochondrial gene percentage of >25% were filtered out to eliminate partial cells and doublets. 
+# Ubiquitously expressed ribosomal protein-coding (RPS and RPL) and MALAT noncoding RNA, miRNA, and snoRNA genes 
+# were also excluded from analysis. 
+# Seurat objects were created, followed by normalizing data, scaling data, and finding variable 2,000 genes. 
 
-for (i in 1:nrow(phenotype)){
-setwd("/Volumes/JKIM_20TB/Single_cell_analysis_GEO/Psoriasis_posttx_05.01.2021/individual_data")
-dir.create("./10XRead")
-new.folder <- "/Volumes/JKIM_20TB/Single_cell_analysis_GEO/Psoriasis_posttx_05.01.2021/individual_data/10XRead"
+# This strategy has been used for the coauthors' previous skin single-cell RNA sequencing studies
+# 1. Der, E. et al. Tubular cell and keratinocyte single-cell transcriptomics applied to lupus nephritis reveal type I IFN and fibrosis relevant pathways. Nature immunology 20, 915-927 (2019)
+# 2. He, H. et al. Single-cell transcriptome analysis of human skin identifies novel fibroblast subpopulation and enrichment of immune subsets in atopic dermatitis. The Journal of allergy and clinical immunology (2020).
+# 3. Kim J, Lee J, Kim HJ, Kameyama N, Nazarian R, Der E, et al. Single-cell transcriptomics applied to emigrating cells from psoriasis elucidate pathogenic versus regulatory immune cell subsets. J Allergy Clin Immunol 2021
 
-copy <- file.copy(paste(phenotype$Rcoding_Number_05.01.2021[i],"_barcodes.tsv.gz",sep=""), new.folder)
-copy <- file.copy(paste(phenotype$Rcoding_Number_05.01.2021[i],"_features.tsv.gz",sep=""), new.folder)
-copy <- file.copy(paste(phenotype$Rcoding_Number_05.01.2021[i],"_matrix.mtx.gz",sep=""), new.folder)
+# All the single-cell data used for the analysis are publicly availalbe on NCBI Gene Expression Omnibus (GEO) with phenotype information
+# The following is the example of data loading "Control01".
 
-setwd("/Volumes/JKIM_20TB/Single_cell_analysis_GEO/Psoriasis_posttx_05.01.2021/individual_data/10XRead")
-file.rename(paste(phenotype$Rcoding_Number_05.01.2021[i],"_barcodes.tsv.gz",sep=""),"barcodes.tsv.gz" )
-file.rename(paste(phenotype$Rcoding_Number_05.01.2021[i],"_features.tsv.gz",sep=""),"features.tsv.gz" )
-file.rename(paste(phenotype$Rcoding_Number_05.01.2021[i],"_matrix.mtx.gz",sep=""),"matrix.mtx.gz" )
+Control01 <- Read10X(data.dir = "./Control01")
 
-#
-assign("data",Read10X(data.dir = new.folder))
+Control01 <- CreateSeuratObject(counts = Control01, project = "Control01", min.cells = 3, min.features = 100)
+Control01[["percent.mt"]] <- PercentageFeatureSet(object = Control01, pattern = "^MT-")
+Control01@meta.data$stim <- as.character(phenotype[grep('Control01', phenotype$ID),2])
+Control01@meta.data$number <- as.character(phenotype[grep('Control01', phenotype$ID),1])
 
-data <- CreateSeuratObject(counts = data, project = phenotype$Rcoding_Number_05.01.2021[i], min.cells = 3, min.features = 100)
-data[["percent.mt"]] <- PercentageFeatureSet(object = data, pattern = "^MT-")
-data@meta.data$stim <- phenotype$Rcoding_Category[i]
-data@meta.data$number <- phenotype$Rcoding_Number_05.01.2021[i]
+Control01_morethan25percentMT <- subset(Control01, subset = percent.mt > 25)
+Control01_morethan25percentMTbc <- colnames(Control01_morethan25percentMT@assays$RNA@data)
 
-pdf(paste("~/Dropbox/10X_JKIM/aggregation/Psoriasis_posttx_05.01.2021/individual_data_analysis/Vnplot_", phenotype$Rcoding_Number_05.01.2021[i], ".pdf",sep=""),width=10,height=5) ## Vnplot 
-print(VlnPlot(object = data, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3))
-dev.off()
+Control01 <- Read10X(data.dir = "./Control01")
+Control01<-remove.genes(Control01, Control01_morethan25percentMTbc)
 
-plot1 <- FeatureScatter(object = data, feature1 = "nCount_RNA", feature2 = "percent.mt")
-plot2 <- FeatureScatter(object = data, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
-pdf(paste("~/Dropbox/10X_JKIM/aggregation/Psoriasis_posttx_05.01.2021/individual_data_analysis/FeatureScatter_", phenotype$Rcoding_Number_05.01.2021[i], ".pdf",sep=""),width=12,height=5)
-print(plot1 + plot2)
-dev.off()
+Control01 <- CreateSeuratObject(counts = Control01, project = "Control01", min.cells = 3, min.features = 100)
+Control01[["percent.mt"]] <- PercentageFeatureSet(object = Control01, pattern = "^MT-")
+Control01 <- subset(Control01, subset = nFeature_RNA > 100 & nFeature_RNA < 5000 & percent.mt < 25)
+Control01@meta.data$stim <- as.character(phenotype[grep('Control01', phenotype$ID),2])
+Control01@meta.data$number <- as.character(phenotype[grep('Control01', phenotype$ID),1])
+rm(Control01_morethan25percentMTbc)
 
-data_morethan25percentMT <- NA
-data_morethan25percentMTbc <- NA
-tryCatch(data_morethan25percentMT <- subset(data, subset = percent.mt > 25), error=function(e) NULL)
-tryCatch(data_morethan25percentMTbc <- colnames(data_morethan25percentMT@assays$RNA@data), error=function(e) NULL)
-rm(data)
-rm(data_morethan25percentMT)
+Control01 <- NormalizeData(Control01)
+Control01 <- FindVariableFeatures(Control01, selection.method = "vst", nfeatures = 2000)
+all.genes <- rownames(Control01)
+Control01 <- ScaleData(Control01, features = all.genes)
 
 
-#
-assign("data",Read10X(data.dir = new.folder))
-data<-remove.genes(data, data_morethan25percentMTbc)
-
-data <- CreateSeuratObject(counts = data, project = phenotype$Rcoding_Number_05.01.2021[i], min.cells = 3, min.features = 100)
-data[["percent.mt"]] <- PercentageFeatureSet(object = data, pattern = "^MT-")
-data <- subset(data, subset = nFeature_RNA > 100 & nFeature_RNA < 5000 & percent.mt < 25)
-data@meta.data$stim <- phenotype$Rcoding_Category[i]
-data@meta.data$number <- phenotype$Rcoding_Number_05.01.2021[i]
-rm(data_morethan25percentMTbc)
-
-data <- NormalizeData(data)
-data <- FindVariableFeatures(data, selection.method = "vst", nfeatures = 2000)
-all.genes <- rownames(data)
-data <- ScaleData(data, features = all.genes)
-
-assign(phenotype$Rcoding_Number_05.01.2021[i],data)
-rm(all.genes)
-rm(data)
-rm(plot1)
-rm(plot2)
-
-unlink("/Volumes/JKIM_20TB/Single_cell_analysis_GEO/Psoriasis_posttx_05.01.2021/individual_data/10XRead", recursive = T)
-}
 
 
 
 ######################################################################################################3
-##Merge data set ####
-setwd("~/Dropbox/10X_JKIM/aggregation/Psoriasis_posttx_05.01.2021")
-dir.create("combined_data")
-getwd()
-list.files()
+#Data Integration
+# We used Seurat R package (version 4.0, https://satijalab.org/seurat/) for the single-cell data integration. 
+# We first merged single-cell data of samples with the identical reagent kit version 
+# and the identical sequencer: 
+#(1) psoriasis samples with reagent kit V2.0 - 10 samples, \
+#(2) psoriasis samples with reagent kit V3.0 - 3 samples, and 
+#(3) control samples with reagent kit V2.0 - 5 samples. 
 
 #V2.0 & NextSeq - 13
 list_V2.0 <- phenotype[phenotype$Chemistry == "V2.0",]
@@ -185,6 +126,7 @@ add.cell.ids = list_V3.1_NovaSeq
 
 ######################################################################################################
 ### Data normalization
+# Merged data sets are individualized normalized
 V2.0 <- NormalizeData(V2.0)
 V2.0 <- FindVariableFeatures(V2.0, selection.method = "vst", nfeatures = 2000)
 
@@ -199,30 +141,8 @@ V3.1_NovaSeq<- FindVariableFeatures(V3.1_NovaSeq, selection.method = "vst", nfea
 
 ######################################################################################################
 ### Data inegration
+# To harmonize merged groups into a single dataset without batch effects, 
+# correspondences between cells in three merged datasets were identified by the FIndIntegrationAnchors function, 
+# and used for data integration with the IntegratedData function as detailed by Butler et al. 
 immune.anchors <- FindIntegrationAnchors(object.list = list(V2.0,V3.0,V3.1_NextSeq ,V3.1_NovaSeq), dims = 1:30)
 Round0 <- IntegrateData(anchorset = immune.anchors, dims = 1:30)
-
-
-######################################################################################################
-### Perform an integrated analysis
-setwd("~/Dropbox/10X_JKIM/aggregation/Psoriasis_posttx_05.01.2021")
-
-Round0@assays
-DefaultAssay(Round0) <- "integrated"
-
-## Vnplot 
-pdf('./combined_data/Vnplot_Round0.pdf',width=30,height=5)
-VlnPlot(object = Round0, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3) 
-dev.off()
-
-#FeatureScatter
-plot1 <- FeatureScatter(object = Round0, feature1 = "nCount_RNA", feature2 = "percent.mt")
-plot2 <- FeatureScatter(object = Round0, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
-pdf('./combined_data/FeatureScatter_Round0.pdf',width=20,height=5)
-CombinePlots(plots = list(plot1, plot2))
-dev.off()
-
-save(Round0, file = "./combined_data/Round0_integrated.Rda")
-
-
-
